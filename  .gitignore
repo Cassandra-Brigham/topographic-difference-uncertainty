@@ -1,0 +1,78 @@
+# -----------------------
+# Python
+# -----------------------
+__pycache__/
+*.py[cod]
+*.so
+
+# C extensions
+*.pyd
+*.pdb
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*$py.class
+
+# -----------------------
+# Environments
+# -----------------------
+.venv/
+venv/
+env/
+ENV/
+*env*/
+
+# Conda
+*.conda
+*.yml
+conda-meta/
+
+# -----------------------
+# Jupyter
+# -----------------------
+.ipynb_checkpoints/
+*.ipynb.tmp
+
+# -----------------------
+# Build / packaging
+# -----------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# -----------------------
+# Logs / temp
+# -----------------------
+*.log
+*.tmp
+*.temp
+
+# -----------------------
+# OS files
+# -----------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------
+# IDE settings
+# -----------------------
+.vscode/
+.idea/
+*.swp
+
+# -----------------------
+# Project-specific
+# -----------------------
+# Add large raw data you do NOT want in Git:
+data/
+*.tif
+*.zip
+*.gz
+*.tar
+*.dat
+
+# Uncomment if needed:
+# results/
+# experiments/

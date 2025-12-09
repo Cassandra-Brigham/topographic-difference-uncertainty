@@ -1,0 +1,30 @@
+# Core Scientific Computing
+numpy
+pandas
+scipy
+matplotlib
+
+# Geospatial/GIS Libraries
+rasterio
+pyproj
+gdal
+geopandas
+shapely
+rioxarray
+
+# Point Cloud Processing
+pdal
+small_gicp
+
+# Performance Optimization
+numba
+
+# Web and Data Access
+requests
+
+# Interactive Jupyter Widgets
+ipyleaflet
+ipywidgets
+
+# Configuration
+pyyaml
