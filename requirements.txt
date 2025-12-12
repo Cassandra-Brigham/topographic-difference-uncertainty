@@ -6,21 +6,20 @@ matplotlib
 colormaps  # Note: not on conda-forge, installed via pip in Colab
 
 # Geospatial/GIS Libraries
-# Note: In Colab, gdal/rasterio/pyproj/shapely/geopandas are installed via conda
-# to avoid compilation issues. The notebook setup automatically excludes these
-# from pip installation when running in Colab.
+# Note: In Colab, these are installed via pip after apt-get installs system libraries.
+# The notebook setup handles the apt dependencies automatically.
 rasterio
 pyproj
-gdal
 geopandas
 shapely
 rioxarray
+# gdal - not needed directly, rasterio provides GDAL bindings
 
 # Point Cloud Processing
-# Note: In Colab, pdal is installed as 'python-pdal' via conda to avoid build errors.
-# small_gicp is also handled via conda. Both are excluded from pip in Colab.
+# Note: In Colab, PDAL requires system libraries installed via apt-get first.
+# The notebook setup runs: apt-get install pdal libpdal-dev libpdal-plugins
 pdal
-small_gicp
+# small_gicp - optional, excluded from Colab setup
 
 # Performance Optimization
 numba
