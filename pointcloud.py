@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
-import pdal
+# Use pdal_wrapper for Colab compatibility (falls back to native pdal locally)
+try:
+    from pdal_wrapper import pdal
+except ImportError:
+    import pdal
 import pyproj
 import rasterio
 import scipy  # noqa: F401  (needed if scipy is installed, used via has_scipy / generic_filter)

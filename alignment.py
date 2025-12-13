@@ -7,7 +7,11 @@ Uses small_gicp for registration and PDAL for I/O and filtering
 import json
 import numpy as np
 import small_gicp
-import pdal
+# Use pdal_wrapper for Colab compatibility (falls back to native pdal locally)
+try:
+    from pdal_wrapper import pdal
+except ImportError:
+    import pdal
 from typing import Optional, Dict, Tuple, List, Union, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum

@@ -61,12 +61,16 @@ except ImportError:
     boto3 = None
 
 
-# Optional PDAL
+# Optional PDAL - use wrapper for Colab compatibility
 try:
-    import pdal
+    from pdal_wrapper import pdal
     _PDAL_AVAILABLE = True
 except ImportError:
-    _PDAL_AVAILABLE = False
+    try:
+        import pdal
+        _PDAL_AVAILABLE = True
+    except ImportError:
+        _PDAL_AVAILABLE = False
 
 # GDAL config
 gdal.UseExceptions()
