@@ -13,13 +13,6 @@ pyproj
 geopandas
 shapely
 rioxarray
-# gdal - not needed directly, rasterio provides GDAL bindings
-
-# Point Cloud Processing
-# Note: In Colab, PDAL requires system libraries installed via apt-get first.
-# The notebook setup runs: apt-get install pdal libpdal-dev libpdal-plugins
-#pdal
-#small_gicp
 
 # Performance Optimization
 numba

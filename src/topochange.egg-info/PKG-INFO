@@ -1,0 +1,115 @@
+Metadata-Version: 2.4
+Name: topochange
+Version: 0.1.0
+Summary: Topographic change detection and uncertainty quantification using variogram-based methods
+Author: Cassandra Brigham
+License: MIT
+Project-URL: Homepage, https://github.com/yourusername/topochange
+Project-URL: Documentation, https://github.com/yourusername/topochange#readme
+Project-URL: Repository, https://github.com/yourusername/topochange
+Project-URL: Issues, https://github.com/yourusername/topochange/issues
+Keywords: topography,DEM,uncertainty,variogram,geospatial,raster,point-cloud,change-detection
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: rasterio
+Requires-Dist: pyproj
+Requires-Dist: geopandas
+Requires-Dist: shapely
+Requires-Dist: rioxarray
+Requires-Dist: numba
+Requires-Dist: requests
+Requires-Dist: pyyaml
+Provides-Extra: interactive
+Requires-Dist: ipyleaflet; extra == "interactive"
+Requires-Dist: ipywidgets; extra == "interactive"
+Provides-Extra: pointcloud
+Requires-Dist: pdal; extra == "pointcloud"
+Provides-Extra: alignment
+Requires-Dist: small_gicp; extra == "alignment"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Provides-Extra: all
+Requires-Dist: topochange[alignment,interactive,pointcloud]; extra == "all"
+
+# topochange
+
+Topographic change detection and uncertainty quantification using variogram-based methods.
+
+## Installation
+
+### From source (development)
+
+```bash
+git clone https://github.com/yourusername/topochange.git
+cd topochange
+pip install -e .
+```
+
+### With optional dependencies
+
+```bash
+# Interactive Jupyter widgets (ipyleaflet, ipywidgets)
+pip install -e ".[interactive]"
+
+# Point cloud support (PDAL)
+pip install -e ".[pointcloud]"
+
+# Point cloud alignment (small_gicp)
+pip install -e ".[alignment]"
+
+# All optional dependencies
+pip install -e ".[all]"
+
+# Development dependencies (pytest, black, ruff)
+pip install -e ".[dev]"
+```
+
+## Quick Start
+
+```python
+from topochange import Raster, RasterPair, VariogramAnalysis
+
+# Load two DEMs
+dem1 = Raster.from_file("dem_2019.tif")
+dem2 = Raster.from_file("dem_2023.tif")
+
+# Create pair and compute difference
+pair = RasterPair(dem1, dem2)
+result = pair.compute_difference()
+```
+
+## Features
+
+- Load and compare raster DEMs and point clouds
+- CRS transformations including vertical datum conversions
+- Variogram-based uncertainty analysis
+- Regional uncertainty propagation
+- Interactive stable area identification
+
+## Requirements
+
+- Python >= 3.9
+- numpy, pandas, scipy, matplotlib
+- rasterio, pyproj, geopandas, shapely, rioxarray
+- numba
+
+## License
+
+MIT

@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "topochange"
+version = "0.1.0"
+description = "Topographic change detection and uncertainty quantification using variogram-based methods"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Cassandra Brigham"}
+]
+keywords = [
+    "topography",
+    "DEM",
+    "uncertainty",
+    "variogram",
+    "geospatial",
+    "raster",
+    "point-cloud",
+    "change-detection"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "rasterio",
+    "pyproj",
+    "geopandas",
+    "shapely",
+    "rioxarray",
+    "numba",
+    "requests",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+interactive = [
+    "ipyleaflet",
+    "ipywidgets",
+]
+pointcloud = [
+    "pdal",
+]
+alignment = [
+    "small_gicp",
+]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "ruff",
+]
+all = [
+    "topochange[interactive,pointcloud,alignment]",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/topochange"
+Documentation = "https://github.com/yourusername/topochange#readme"
+Repository = "https://github.com/yourusername/topochange"
+Issues = "https://github.com/yourusername/topochange/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+topochange = ["data/*.yaml"]
