@@ -1,3 +1,8 @@
+"""CRS conversion and transformation utilities.
+
+Provides functions for converting between CRS formats (WKT, PROJ, EPSG),
+detecting vertical/horizontal components, and building coordinate transformers.
+"""
 from typing import Any, Dict, Optional, Union
 
 import numpy as _np

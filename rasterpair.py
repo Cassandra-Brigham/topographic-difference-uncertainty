@@ -1,17 +1,17 @@
 # rasterpair.py
 """
-RasterPair class for comparing, transforming, and differencing two rasters.
+Compare, transform, and difference two rasters.
 
-This module provides tools for:
-- Comparing CRS, epoch, geoid, and grid parameters between two rasters
+Provides tools for:
+- Comparing CRS, epoch, geoid, and grid parameters between rasters
 - Transforming raster1 to match raster2's reference frame
-- Computing elevation differences with proper metadata tracking
+- Computing elevation differences with metadata tracking
 
-The transformation pipeline follows the order:
-1. Dynamic epoch transformation (if epochs differ)
-2. Horizontal CRS reprojection (if horizontal CRS differs)
-3. Vertical datum transformation (if vertical kind or geoid differs)
-4. Grid alignment (resample to match exact pixel grid)
+Transformation order:
+1. Dynamic epoch transformation
+2. Horizontal CRS reprojection
+3. Vertical datum transformation
+4. Grid alignment
 """
 
 from __future__ import annotations
@@ -1273,10 +1273,9 @@ class RasterPair:
         comparison = self.check_all_match()
         
         if verbose:
-            print(f"\n{'='*60}", file=sys.stderr)
-            print("RasterPair: Transform raster1 to match raster2", file=sys.stderr)
-            print(f"{'='*60}", file=sys.stderr)
-            print(f"Transformations needed: {comparison['transformations_needed']}", file=sys.stderr)
+            print(f"\n--- Raster Transformation ---", file=sys.stderr)
+            print(f"{'Step':<30} {'Status':<30}", file=sys.stderr)
+            print("-" * 60, file=sys.stderr)
         
         # Start with raster1
         current = self.raster1
@@ -1311,7 +1310,7 @@ class RasterPair:
             if target_epoch is not None:
                 src_epoch = getattr(current, 'epoch', None)
                 if verbose:
-                    print(f"\n[Step 1] Epoch transformation: {src_epoch} → {target_epoch}", file=sys.stderr)
+                    print(f"{'Epoch transform':<30} {src_epoch} -> {target_epoch}", file=sys.stderr)
                 
                 current = current.warp_raster(
                     dynamic_target_epoch=target_epoch,
@@ -1329,28 +1328,22 @@ class RasterPair:
                 self._transformation_history.append(step_info)
                 
                 # Record in CRSHistory if available
-                # Note: raster.py now handles interpolation tracking internally,
-                # so we just record the RasterPair-level context
+                # Interpolation tracking handled by raster.py
                 if record_history and getattr(current, 'crs_history', None) is not None:
-                    # The transformation entry was already recorded by raster.py
-                    # Just add RasterPair context note
-                    pass  # Interpolation tracking now handled by raster.py
-                
-                if verbose:
-                    print(f"    ✓ Epoch transformation complete", file=sys.stderr)
+                    pass
         
         # 2. Horizontal CRS reprojection
         if not skip_horizontal and 'horizontal_crs' in comparison['transformations_needed']:
             if target_horiz_crs is not None:
                 src_crs = getattr(current, 'crs', None)
                 if verbose:
-                    print(f"\n[Step 2] Horizontal reprojection", file=sys.stderr)
                     try:
                         src_epsg = _ensure_crs_obj(src_crs).to_epsg()
                         tgt_epsg = _ensure_crs_obj(target_horiz_crs).to_epsg()
-                        print(f"    EPSG:{src_epsg} → EPSG:{tgt_epsg}", file=sys.stderr)
+                        crs_str = f"EPSG:{src_epsg} -> EPSG:{tgt_epsg}"
                     except Exception:
-                        print(f"    {src_crs} → {target_horiz_crs}", file=sys.stderr)
+                        crs_str = f"{src_crs} -> {target_horiz_crs}"
+                    print(f"{'Horizontal reprojection':<30} {crs_str}", file=sys.stderr)
                 
                 prev_file = current.filename
                 current = current.warp_raster(
@@ -1367,24 +1360,18 @@ class RasterPair:
                     'target_file': current.filename,
                 }
                 self._transformation_history.append(step_info)
-                
-                # Record in CRSHistory
-                # Note: raster.py now handles interpolation tracking internally
+
+                # Interpolation tracking handled by raster.py
                 if record_history and getattr(current, 'crs_history', None) is not None:
-                    # The transformation entry was already recorded by raster.py
-                    pass  # Interpolation tracking now handled by raster.py
-                
-                if verbose:
-                    print(f"    ✓ Horizontal reprojection complete", file=sys.stderr)
-        
+                    pass
+
         # 3. Vertical datum transformation
         needs_vertical = 'vertical_datum' in comparison['transformations_needed']
         if not skip_vertical and needs_vertical:
             if source_vertical_kind is not None and target_vertical_kind is not None:
                 if verbose:
-                    print(f"\n[Step 3] Vertical datum transformation", file=sys.stderr)
-                    print(f"    {source_vertical_kind} → {target_vertical_kind}", file=sys.stderr)
-                    print(f"    Geoid: {source_geoid} → {target_geoid}", file=sys.stderr)
+                    print(f"{'Vertical datum':<30} {source_vertical_kind} -> {target_vertical_kind}", file=sys.stderr)
+                    print(f"{'Geoid model':<30} {source_geoid} -> {target_geoid}", file=sys.stderr)
                 
                 prev_file = current.filename
                 current = current.warp_raster(
@@ -1406,16 +1393,11 @@ class RasterPair:
                     'target_file': current.filename,
                 }
                 self._transformation_history.append(step_info)
-                
-                # Record in CRSHistory
-                # Note: raster.py now handles interpolation tracking internally
+
+                # Interpolation tracking handled by raster.py
                 if record_history and getattr(current, 'crs_history', None) is not None:
-                    # The transformation entry was already recorded by raster.py
-                    pass  # Interpolation tracking now handled by raster.py
-                
-                if verbose:
-                    print(f"    ✓ Vertical datum transformation complete", file=sys.stderr)
-        
+                    pass
+
         # 3b. Vertical unit conversion
         needs_unit_conversion = 'vertical_units' in comparison['transformations_needed']
         if not skip_units and needs_unit_conversion:
@@ -1443,8 +1425,7 @@ class RasterPair:
 
             if source_units != target_units:
                 if verbose:
-                    print(f"\n[Step 3b] Vertical unit conversion", file=sys.stderr)
-                    print(f"    {source_units} → {target_units}", file=sys.stderr)
+                    print(f"{'Unit conversion':<30} {source_units} -> {target_units}", file=sys.stderr)
                 
                 prev_file = current.filename
                 current = current.convert_vertical_units(
@@ -1460,15 +1441,12 @@ class RasterPair:
                     'target_file': current.filename,
                 }
                 self._transformation_history.append(step_info)
-                
-                if verbose:
-                    print(f"    ✓ Unit conversion complete", file=sys.stderr)
-        
+
         # 4. Grid alignment
         if not skip_alignment:
             if verbose:
-                print(f"\n[Step 4] Grid alignment to reference", file=sys.stderr)
-            
+                print(f"{'Grid alignment':<30} [done]", file=sys.stderr)
+
             prev_file = current.filename
             current = current.warp_raster(
                 align_to=self.raster2,
@@ -1483,24 +1461,17 @@ class RasterPair:
                 'target_file': current.filename,
             }
             self._transformation_history.append(step_info)
-            
-            # Record in CRSHistory
-            # Note: raster.py now handles interpolation tracking internally
+
+            # Interpolation tracking handled by raster.py
             if record_history and getattr(current, 'crs_history', None) is not None:
-                # The transformation entry was already recorded by raster.py
-                pass  # Interpolation tracking now handled by raster.py
-            
-            if verbose:
-                print(f"    ✓ Grid alignment complete", file=sys.stderr)
-        
+                pass
+
         # Cache the result
         self._raster1_transformed = current
-        
+
         if verbose:
-            print(f"\n{'='*60}", file=sys.stderr)
-            print("Transformation pipeline complete", file=sys.stderr)
-            print(f"{'='*60}\n", file=sys.stderr)
-        
+            print("-" * 60, file=sys.stderr)
+
         return current
 
     # =========================================================================
@@ -1572,9 +1543,7 @@ class RasterPair:
         import sys
         
         if verbose:
-            print(f"\n{'='*60}", file=sys.stderr)
-            print("RasterPair: Computing Difference (raster2 - raster1)", file=sys.stderr)
-            print(f"{'='*60}", file=sys.stderr)
+            print(f"\n--- Computing Difference (raster2 - raster1) ---", file=sys.stderr)
         
         # Transform raster1 if needed
         if transform_first:
@@ -1615,10 +1584,11 @@ class RasterPair:
             n_valid2 = np.sum(valid2)
             n_valid_both = np.sum(valid_both)
             total = data1.size
-            print(f"\nValid pixels:", file=sys.stderr)
-            print(f"    Raster1: {n_valid1:,} / {total:,} ({100*n_valid1/total:.1f}%)", file=sys.stderr)
-            print(f"    Raster2: {n_valid2:,} / {total:,} ({100*n_valid2/total:.1f}%)", file=sys.stderr)
-            print(f"    Both:    {n_valid_both:,} / {total:,} ({100*n_valid_both/total:.1f}%)", file=sys.stderr)
+            print(f"\n{'Source':<12} {'Valid Pixels':<20} {'Percent':<10}", file=sys.stderr)
+            print("-" * 42, file=sys.stderr)
+            print(f"{'Raster1':<12} {n_valid1:>12,} / {total:<6,} {100*n_valid1/total:>6.1f}%", file=sys.stderr)
+            print(f"{'Raster2':<12} {n_valid2:>12,} / {total:<6,} {100*n_valid2/total:>6.1f}%", file=sys.stderr)
+            print(f"{'Overlap':<12} {n_valid_both:>12,} / {total:<6,} {100*n_valid_both/total:>6.1f}%", file=sys.stderr)
         
         # Compute difference: raster2 - raster1
         # Initialize with NaN, then fill valid pixels
@@ -1680,17 +1650,19 @@ class RasterPair:
             histogram = {'hist': [], 'bin_edges': []}
         
         if verbose:
-            print(f"\nDifference statistics:", file=sys.stderr)
+            print(f"\n--- Difference Statistics ---", file=sys.stderr)
             if stats['mean'] is not None:
-                print(f"    Min:    {stats['min']:.4f} m", file=sys.stderr)
-                print(f"    Max:    {stats['max']:.4f} m", file=sys.stderr)
-                print(f"    Mean:   {stats['mean']:.4f} m", file=sys.stderr)
-                print(f"    Std:    {stats['std']:.4f} m", file=sys.stderr)
-                print(f"    Median: {stats['median']:.4f} m", file=sys.stderr)
-                print(f"    NMAD:   {stats['nmad']:.4f} m", file=sys.stderr)
-                print(f"    RMSE:   {stats['rmse']:.4f} m", file=sys.stderr)
+                print(f"{'Statistic':<12} {'Value (m)':<15}", file=sys.stderr)
+                print("-" * 27, file=sys.stderr)
+                print(f"{'Min':<12} {stats['min']:>12.4f}", file=sys.stderr)
+                print(f"{'Max':<12} {stats['max']:>12.4f}", file=sys.stderr)
+                print(f"{'Mean':<12} {stats['mean']:>12.4f}", file=sys.stderr)
+                print(f"{'Std':<12} {stats['std']:>12.4f}", file=sys.stderr)
+                print(f"{'Median':<12} {stats['median']:>12.4f}", file=sys.stderr)
+                print(f"{'NMAD':<12} {stats['nmad']:>12.4f}", file=sys.stderr)
+                print(f"{'RMSE':<12} {stats['rmse']:>12.4f}", file=sys.stderr)
             else:
-                print("    No valid pixels for statistics", file=sys.stderr)
+                print("No valid pixels for statistics.", file=sys.stderr)
         
         # Generate output path
         if output_path is None:
@@ -1721,7 +1693,7 @@ class RasterPair:
             )
         
         if verbose:
-            print(f"\nDifference raster written to: {output_path}", file=sys.stderr)
+            print(f"\nOutput: {output_path}", file=sys.stderr)
         
         # Load as Raster object
         diff_raster = Raster.from_file(output_path, rtype='dod', metadata={})
@@ -1793,7 +1765,7 @@ class RasterPair:
         except Exception as e:
             import sys
             if verbose:
-                print(f"[WARNING] Could not create CRSHistory for difference raster: {e}", file=sys.stderr)
+                print(f"[WARNING] Could not create CRSHistory for difference raster: {e}.", file=sys.stderr)
         
         # Build metadata summary
         metadata = {
@@ -1995,40 +1967,46 @@ class RasterPair:
         """
         comparison = self.check_all_match()
         
-        print("\n" + "="*60)
-        print("RasterPair Summary")
-        print("="*60)
-        
-        print(f"\nRaster 1: {Path(self.raster1.filename).name}")
-        print(f"  Epoch: {getattr(self.raster1, 'epoch', 'N/A')}")
-        print(f"  Geoid: {getattr(self.raster1, 'current_geoid_model', None) or getattr(self.raster1, 'original_geoid_model', 'N/A')}")
-        print(f"  Orthometric: {getattr(self.raster1, 'is_orthometric', 'N/A')}")
-        print(f"  Vertical Units: {getattr(self.raster1, 'current_vertical_units', None) or getattr(self.raster1, 'vertical_units', 'unknown')}")
-        
-        print(f"\nRaster 2: {Path(self.raster2.filename).name}")
-        print(f"  Epoch: {getattr(self.raster2, 'epoch', 'N/A')}")
-        print(f"  Geoid: {getattr(self.raster2, 'current_geoid_model', None) or getattr(self.raster2, 'original_geoid_model', 'N/A')}")
-        print(f"  Orthometric: {getattr(self.raster2, 'is_orthometric', 'N/A')}")
-        print(f"  Vertical Units: {getattr(self.raster2, 'current_vertical_units', None) or getattr(self.raster2, 'vertical_units', 'unknown')}")
-        
-        print(f"\nComparison:")
-        print(f"  Horizontal CRS match: {comparison['horizontal_crs']['match']}")
-        print(f"  Vertical CRS match:   {comparison['vertical_crs']['match']}")
-        print(f"  Geoid match:          {comparison['geoid']['match']}")
-        print(f"  Epoch match:          {comparison['epoch']['match']}")
-        print(f"  Units match:          {comparison['vertical_units']['match']}")
-        print(f"  Grid match:           {comparison['grid']['match']}")
-        
+        print("\n--- RasterPair Summary ---")
+
+        # Build raster info table
+        r1_epoch = getattr(self.raster1, 'epoch', 'N/A')
+        r1_geoid = getattr(self.raster1, 'current_geoid_model', None) or getattr(self.raster1, 'original_geoid_model', 'N/A')
+        r1_units = getattr(self.raster1, 'current_vertical_units', None) or getattr(self.raster1, 'vertical_units', 'unknown')
+        r2_epoch = getattr(self.raster2, 'epoch', 'N/A')
+        r2_geoid = getattr(self.raster2, 'current_geoid_model', None) or getattr(self.raster2, 'original_geoid_model', 'N/A')
+        r2_units = getattr(self.raster2, 'current_vertical_units', None) or getattr(self.raster2, 'vertical_units', 'unknown')
+
+        print(f"\n{'Property':<18} {'Raster1':<20} {'Raster2':<20}")
+        print("-" * 58)
+        print(f"{'File':<18} {Path(self.raster1.filename).name[:18]:<20} {Path(self.raster2.filename).name[:18]:<20}")
+        print(f"{'Epoch':<18} {str(r1_epoch)[:18]:<20} {str(r2_epoch)[:18]:<20}")
+        print(f"{'Geoid':<18} {str(r1_geoid)[:18]:<20} {str(r2_geoid)[:18]:<20}")
+        print(f"{'Vertical Units':<18} {str(r1_units)[:18]:<20} {str(r2_units)[:18]:<20}")
+
+        # Comparison table
+        def match_str(val):
+            return "Yes" if val else "No"
+
+        print(f"\n{'Parameter':<20} {'Match':<8}")
+        print("-" * 28)
+        print(f"{'Horizontal CRS':<20} {match_str(comparison['horizontal_crs']['match']):<8}")
+        print(f"{'Vertical CRS':<20} {match_str(comparison['vertical_crs']['match']):<8}")
+        print(f"{'Geoid':<20} {match_str(comparison['geoid']['match']):<8}")
+        print(f"{'Epoch':<20} {match_str(comparison['epoch']['match']):<8}")
+        print(f"{'Units':<20} {match_str(comparison['vertical_units']['match']):<8}")
+        print(f"{'Grid':<20} {match_str(comparison['grid']['match']):<8}")
+
         if comparison['transformations_needed']:
             print(f"\nTransformations needed: {', '.join(comparison['transformations_needed'])}")
         else:
-            print(f"\nRasters are fully aligned - ready for differencing!")
-        
+            print(f"\nRasters are aligned and ready for differencing.")
+
         if self._transformation_history:
             print(f"\nTransformation steps applied:")
             for i, step in enumerate(self._transformation_history, 1):
                 print(f"  {i}. {step.get('step', 'unknown')}")
-        
+
         # Show interpolation history if available
         if self._raster1_transformed is not None:
             crs_hist = getattr(self._raster1_transformed, 'crs_history', None)
@@ -2036,16 +2014,13 @@ class RasterPair:
                 try:
                     interp_summary = crs_hist.get_interpolation_summary()
                     if interp_summary['count'] > 0:
-                        print(f"\nInterpolation methods applied:")
-                        print(f"  Total operations: {interp_summary['count']}")
-                        print(f"  Methods used: {', '.join(interp_summary['methods_used'])}")
+                        print(f"\nInterpolation: {interp_summary['count']} operations, methods: {', '.join(interp_summary['methods_used'])}")
                         if interp_summary['any_resampling_skipped']:
-                            print(f"  Note: Some resampling was skipped (sub-pixel shifts)")
-                        print(f"  Chain: {' → '.join(crs_hist.get_interpolation_chain())}")
+                            print(f"  Note: Some resampling skipped (sub-pixel shifts)")
                 except Exception:
                     pass
-        
-        print("="*60 + "\n")
+
+        print("")
 
     # =========================================================================
     # Legacy Methods (for backward compatibility)
@@ -2157,9 +2132,7 @@ class RasterPair:
         comparison = self.check_all_match()
         
         if verbose:
-            print(f"\n{'=' * 60}", file=sys.stderr)
-            print("RasterPair: Transform compare to match reference", file=sys.stderr)
-            print(f"{'=' * 60}", file=sys.stderr)
+            print(f"\n--- Transform compare to match reference ---", file=sys.stderr)
             print(f"Transformations needed: {comparison['transformations_needed']}", file=sys.stderr)
         
         self._transformation_history = []
@@ -2212,17 +2185,15 @@ class RasterPair:
         if verbose:
             src_epoch = getattr(self.raster1, 'epoch', None)
             if needs_epoch:
-                print(f"  Epoch: {src_epoch:.4f} → {target_epoch:.4f}", file=sys.stderr)
+                print(f"  Epoch: {src_epoch:.4f} -> {target_epoch:.4f}", file=sys.stderr)
             if needs_vertical:
-                print(f"  Vertical: {source_vertical_kind} → {target_vertical_kind}", file=sys.stderr)
-                print(f"  Geoid: {source_geoid} → {target_geoid}", file=sys.stderr)
+                print(f"  Vertical: {source_vertical_kind} -> {target_vertical_kind}", file=sys.stderr)
+                print(f"  Geoid: {source_geoid} -> {target_geoid}", file=sys.stderr)
             if needs_horizontal:
                 print(f"  Horizontal CRS reprojection needed", file=sys.stderr)
-        
+
         # SINGLE warp_raster call with ALL parameters
         if needs_epoch or needs_vertical or needs_horizontal:
-            if verbose:
-                print(f"\nExecuting combined transformation...", file=sys.stderr)
             
             current = self.raster1.warp_raster(
                 # Horizontal parameters
@@ -2252,12 +2223,12 @@ class RasterPair:
             })
             
             if verbose:
-                print(f"  ✓ Combined transformation complete", file=sys.stderr)
+                print(f"  Combined transformation [done]", file=sys.stderr)
         else:
             # May still need grid alignment
             if 'grid' in comparison['transformations_needed']:
                 if verbose:
-                    print(f"\nAligning to reference grid...", file=sys.stderr)
+                    print(f"Aligning to reference grid...", file=sys.stderr)
                 current = self.raster1.warp_raster(
                     align_to=self.raster2,
                     overwrite=overwrite,
@@ -2265,7 +2236,7 @@ class RasterPair:
             else:
                 current = self.raster1
                 if verbose:
-                    print(f"\nNo transformations needed.", file=sys.stderr)
+                    print(f"No transformations needed.", file=sys.stderr)
         
         # Update metadata to match reference
         current.add_metadata(
@@ -2278,10 +2249,7 @@ class RasterPair:
         self._raster1_transformed = current
         
         if verbose:
-            print(f"\n{'=' * 60}", file=sys.stderr)
-            print("Transformation complete", file=sys.stderr)
-            print(f"Output: {current.filename}", file=sys.stderr)
-            print(f"{'=' * 60}\n", file=sys.stderr)
+            print(f"\nOutput: {current.filename}", file=sys.stderr)
         
         return current
 
@@ -2382,17 +2350,17 @@ class RasterPair:
     def print_comparison(self) -> None:
         """Print a human-readable comparison of the two rasters."""
         comparison = self.check_all_match()
-        
-        print("\n" + "=" * 60)
-        print("RasterPair Comparison")
-        print("=" * 60)
-        
+
+        def match_sym(val):
+            return "Yes" if val else "No"
+
+        print("\n--- RasterPair Comparison ---")
         print(f"\nCompare (raster1):   {Path(self.raster1.filename).name}")
         print(f"Reference (raster2): {Path(self.raster2.filename).name}")
-        
+
         print(f"\n{'Parameter':<20} {'Match':<8} {'R1':<20} {'R2':<20}")
         print("-" * 70)
-        
+
         # Horizontal CRS
         try:
             r1_crs = getattr(self.raster1, 'crs', None)
@@ -2404,54 +2372,48 @@ class RasterPair:
         except Exception:
             r1_str = "Unknown"
             r2_str = "Unknown"
-        match_str = "✓" if comparison['horizontal_crs']['match'] else "✗"
-        print(f"{'Horizontal CRS':<20} {match_str:<8} {r1_str:<20} {r2_str:<20}")
-        
+        print(f"{'Horizontal CRS':<20} {match_sym(comparison['horizontal_crs']['match']):<8} {r1_str:<20} {r2_str:<20}")
+
         # Vertical CRS
-        match_str = "✓" if comparison['vertical_crs']['match'] else "✗"
         r1_vert = comparison['vertical_crs']['r1'] or "Unknown"
         r2_vert = comparison['vertical_crs']['r2'] or "Unknown"
-        print(f"{'Vertical CRS':<20} {match_str:<8} {r1_vert:<20} {r2_vert:<20}")
-        
+        print(f"{'Vertical CRS':<20} {match_sym(comparison['vertical_crs']['match']):<8} {r1_vert:<20} {r2_vert:<20}")
+
         # Geoid
-        match_str = "✓" if comparison['geoid']['match'] else "✗"
         r1_geoid = comparison['geoid']['r1'] or "None"
         r2_geoid = comparison['geoid']['r2'] or "None"
         r1_geoid = r1_geoid[:18] + ".." if len(r1_geoid) > 20 else r1_geoid
         r2_geoid = r2_geoid[:18] + ".." if len(r2_geoid) > 20 else r2_geoid
-        print(f"{'Geoid Model':<20} {match_str:<8} {r1_geoid:<20} {r2_geoid:<20}")
-        
+        print(f"{'Geoid Model':<20} {match_sym(comparison['geoid']['match']):<8} {r1_geoid:<20} {r2_geoid:<20}")
+
         # Epoch
-        match_str = "✓" if comparison['epoch']['match'] else "✗"
         r1_epoch = f"{comparison['epoch']['r1']:.4f}" if comparison['epoch']['r1'] else "None"
         r2_epoch = f"{comparison['epoch']['r2']:.4f}" if comparison['epoch']['r2'] else "None"
-        print(f"{'Epoch':<20} {match_str:<8} {r1_epoch:<20} {r2_epoch:<20}")
-        
+        print(f"{'Epoch':<20} {match_sym(comparison['epoch']['match']):<8} {r1_epoch:<20} {r2_epoch:<20}")
+
         # Units
-        match_str = "✓" if comparison['vertical_units']['match'] else "✗"
-        print(f"{'Vertical Units':<20} {match_str:<8} {comparison['vertical_units']['r1']:<20} {comparison['vertical_units']['r2']:<20}")
-        
+        print(f"{'Vertical Units':<20} {match_sym(comparison['vertical_units']['match']):<8} {comparison['vertical_units']['r1']:<20} {comparison['vertical_units']['r2']:<20}")
+
         # Grid
-        match_str = "✓" if comparison['grid']['match'] else "✗"
         r1_grid = comparison['grid']['r1'] or "Unknown"
         r2_grid = comparison['grid']['r2'] or "Unknown"
         r1_grid = r1_grid[:18] + ".." if len(str(r1_grid)) > 20 else str(r1_grid)
         r2_grid = r2_grid[:18] + ".." if len(str(r2_grid)) > 20 else str(r2_grid)
-        print(f"{'Grid':<20} {match_str:<8} {r1_grid:<20} {r2_grid:<20}")
-        
+        print(f"{'Grid':<20} {match_sym(comparison['grid']['match']):<8} {r1_grid:<20} {r2_grid:<20}")
+
         print("-" * 70)
-        
+
         if comparison['transformations_needed']:
             print(f"\nTransformations needed: {', '.join(comparison['transformations_needed'])}")
         else:
-            print(f"\n✓ Rasters are fully aligned!")
-        
+            print(f"\nRasters are fully aligned.")
+
         if hasattr(self, '_transformation_history') and self._transformation_history:
             print(f"\nTransformation steps applied:")
             for i, step in enumerate(self._transformation_history, 1):
                 print(f"  {i}. {step.get('step', 'unknown')}")
-        
-        print("=" * 60 + "\n")
+
+        print("")
     
     def warp_rasters_to_common_crs(
         self,

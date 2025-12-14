@@ -1,11 +1,10 @@
-"""Classes for propagating variogram-based uncertainty to specific regions.
+"""Propagate variogram-based uncertainty to specific regions.
 
-This module provides utilities for computing spatial (correlated + uncorrelated) 
+Provides utilities for computing spatial (correlated + uncorrelated)
 uncertainties from variogram parameters and applying them to user-defined areas.
 
 Classes:
 - RegionalUncertaintyEstimator: Propagate uncertainty to polygon regions
-- ApplyUncertainty: Apply uncertainty calculations to rasters and compute RMS
 """
 
 from __future__ import annotations
@@ -65,7 +64,7 @@ class RegionalUncertaintyEstimator:
         elif isinstance(geom, Polygon):
             return MultiPolygon([geom])
         else:
-            raise TypeError("Geometry must be a Polygon or MultiPolygon.")
+            raise TypeError("Geometry must be a Polygon or MultiPolygon, not {}.".format(type(geom).__name__))
 
     def __init__(
         self,
@@ -180,17 +179,17 @@ class RegionalUncertaintyEstimator:
         if isinstance(area_of_interest, (str, Path)):
             gdf = gpd.read_file(area_of_interest)
             if gdf.empty:
-                raise ValueError(f"No geometries found in file: {area_of_interest}")
+                raise ValueError(f"No geometries found in file: {area_of_interest}.")
             polygon = gdf.unary_union
         elif isinstance(area_of_interest, (Polygon, MultiPolygon)):
             polygon = area_of_interest
         else:
-            raise TypeError("area_of_interest must be a path or a shapely Polygon/MultiPolygon.")
+            raise TypeError("area_of_interest must be a file path or shapely Polygon/MultiPolygon.")
 
         if isinstance(polygon, MultiPolygon):
             polygon = unary_union(polygon)
         if not isinstance(polygon, Polygon) or polygon.is_empty or polygon.area <= 0:
-            raise ValueError("Input must resolve to a single, valid Polygon with non-zero area.")
+            raise ValueError("Area of interest must be a valid Polygon with non-zero area.")
 
         self.polygon = polygon
         self.area = float(polygon.area)
@@ -289,7 +288,7 @@ class RegionalUncertaintyEstimator:
             and all_params is [C1..Cn, a1..an, (nugget?)].
         """
         if len(sills) != len(ranges):
-            raise ValueError("sills and ranges must have the same length")
+            raise ValueError("sills and ranges must have the same length.")
 
         # Convert to plain Python lists of scalars
         sills = list(sills)
@@ -340,7 +339,7 @@ class RegionalUncertaintyEstimator:
         # Work with the full 2D raster grid from rioxarray, not the 1D data_array
         da = self.raster_data_handler.rioxarray_obj
         if da is None:
-            raise RuntimeError("RasterDataHandler.rioxarray_obj is None; did you call load_raster()?")
+            raise RuntimeError("RasterDataHandler.rioxarray_obj is None. Call load_raster() first.")
 
         arr = da.values
         # If there's a band dimension, squeeze it out
@@ -351,12 +350,12 @@ class RegionalUncertaintyEstimator:
         arr = np.asarray(arr, dtype=float)
 
         if arr.ndim != 2:
-            raise ValueError(f"Expected 2D raster array for uncorrelated noise, got shape {arr.shape}")
+            raise ValueError(f"Expected 2D raster array, got shape {arr.shape}.")
 
         # Valid pixels on the full grid
         valid_mask = np.isfinite(arr)
 
-        # Choose pixels from which to estimate σ0
+        # Choose pixels from which to estimate sigma_0
         mask_for_sigma = valid_mask.copy()
         if use_stable_areas and self.stable_geom is not None:
             # geometry_mask works on the full 2D grid, so out_shape must be 2D
@@ -377,13 +376,13 @@ class RegionalUncertaintyEstimator:
 
         values = arr[mask_for_sigma]
         if values.size == 0:
-            raise RuntimeError("No valid values available to estimate uncorrelated σ0.")
+            raise RuntimeError("No valid values available to estimate uncorrelated sigma.")
 
-        # Per-pixel uncorrelated sigma (RMS; robust if mean≈0)
+        # Per-pixel uncorrelated sigma (RMS; robust if mean is near zero)
         sigma0 = float(np.sqrt(np.mean(values ** 2)))
         self.sigma0_uncorrelated = sigma0
 
-        # Polygon-mean uncorrelated term: σ0 / sqrt(N_poly), with N_poly from area
+        # Polygon-mean uncorrelated term: sigma_0 / sqrt(N_poly), where N_poly from area
         res = float(self.raster_data_handler.resolution)
         cell_area = res ** 2 if res > 0 else 1.0
 
@@ -422,12 +421,12 @@ class RegionalUncertaintyEstimator:
             Var(mean) ≈ E[ ρ(‖X−Y‖) * σ(X) * σ(Y) ],  ρ(h)=1−γ(h)/σ²_total
         """
         if n_pairs <= 0:
-            raise ValueError("n_pairs must be positive.")
+            raise ValueError("n_pairs must be a positive integer.")
 
         rng = np.random.default_rng(seed)
         da = self.raster_data_handler.rioxarray_obj
         if da is None:
-            raise RuntimeError("RasterDataHandler.rioxarray_obj is None; did you call load_raster()?")
+            raise RuntimeError("RasterDataHandler.rioxarray_obj is None. Call load_raster() first.")
 
         xs = da.x.values
         ys = da.y.values
@@ -454,7 +453,7 @@ class RegionalUncertaintyEstimator:
         h = np.linalg.norm(X - Y, axis=1)
         if gamma_func is None:
             if self.gamma_func_total is None:
-                raise RuntimeError("No gamma function available for MC pairs.")
+                raise RuntimeError("No gamma function available. Fit a variogram model first.")
             gamma = self.gamma_func_total(h)
         else:
             gamma = gamma_func(h)
@@ -857,107 +856,3 @@ class RegionalUncertaintyEstimator:
                 self.total_mean_uncertainty_raster,
                 self.total_mean_uncertainty_min_raster,
                 self.total_mean_uncertainty_max_raster)
-
-
-
-# class ApplyUncertainty:
-#     """
-#     Compute spatial (correlated + uncorrelated) uncertainties from variogram parameters,
-#     and compute RMS from a GeoTIFF band.
-#     """
-
-#     @staticmethod
-#     def compute_spatial_uncertainties(
-#         ranges: Sequence[float],
-#         sills: Sequence[float],
-#         area: float,
-#         resolution: float,
-#         rms: Optional[float] = None,
-#         sills_min: Optional[Sequence[float]] = None,
-#         ranges_min: Optional[Sequence[float]] = None,
-#         sills_max: Optional[Sequence[float]] = None,
-#         ranges_max: Optional[Sequence[float]] = None
-#     ) -> Dict[str, Any]:
-#         """
-#         Compute mean uncorrelated & correlated uncertainty terms and their quadrature sum.
-
-#         Parameters
-#         ----------
-#         ranges : sequence of float
-#             Range parameters from variogram (same units as resolution).
-#         sills : sequence of float
-#             Sill parameters from variogram (variance units).
-#         area : float
-#             Total sampling area (in same linear units squared as ranges).
-#         resolution : float
-#             Raster cell size (same linear units as ranges).
-#         rms : float, optional
-#             Root-mean-square of data values; if provided, uncorrelated term = rms / sqrt(N).
-#         sills_min, ranges_min, sills_max, ranges_max : sequences, optional
-#             Percentile bounds for sills/ranges to compute total_min/total_max.
-
-#         Returns
-#         -------
-#         dict
-#             {'uncorrelated', 'correlated', 'total', 'total_min', 'total_max'}
-#         """
-#         n = area / (resolution ** 2)
-#         uncorr = (rms / math.sqrt(n)) if rms is not None else None
-
-#         corr = []
-#         for sill, rng in zip(sills, ranges):
-#             term = (math.sqrt(2.0 * sill) / math.sqrt(n)) * math.sqrt((math.pi * rng ** 2) / (5.0 * resolution ** 2))
-#             corr.append(term)
-
-#         total_sq = sum(c ** 2 for c in corr) + ((uncorr ** 2) if uncorr is not None else 0.0)
-#         total = math.sqrt(total_sq)
-
-#         total_min = total_max = None
-#         if sills_min and ranges_min:
-#             corr_min = [
-#                 (math.sqrt(2.0 * smin) / math.sqrt(n)) * math.sqrt((math.pi * rmin ** 2) / (5.0 * resolution ** 2))
-#                 for smin, rmin in zip(sills_min, ranges_min)
-#             ]
-#             total_min = math.sqrt(sum(c ** 2 for c in corr_min) + ((uncorr ** 2) if uncorr is not None else 0.0))
-
-#         if sills_max and ranges_max:
-#             corr_max = [
-#                 (math.sqrt(2.0 * smax) / math.sqrt(n)) * math.sqrt((math.pi * rmax ** 2) / (5.0 * resolution ** 2))
-#                 for smax, rmax in zip(sills_max, ranges_max)
-#             ]
-#             total_max = math.sqrt(sum(c ** 2 for c in corr_max) + ((uncorr ** 2) if uncorr is not None else 0.0))
-
-#         return {
-#             'uncorrelated': uncorr,
-#             'correlated': corr,
-#             'total': total,
-#             'total_min': total_min,
-#             'total_max': total_max
-#         }
-
-#     @staticmethod
-#     def compute_rms_from_tif(tif_path: str, band: int = 1) -> float:
-#         """
-#         Compute RMS (about zero) of a GeoTIFF band, ignoring nodata and NaNs.
-
-#         Parameters
-#         ----------
-#         tif_path : str
-#         band : int
-
-#         Returns
-#         -------
-#         float
-#         """
-#         with rasterio.open(tif_path) as src:
-#             arr = src.read(band).astype(float)
-#             nodata = src.nodata
-
-#         valid = ~np.isnan(arr)
-#         if nodata is not None:
-#             valid &= (arr != nodata)
-
-#         vals = arr[valid]
-#         if vals.size == 0:
-#             raise ValueError("No valid pixels found (all nodata or NaN).")
-#         return float(np.sqrt(np.mean(vals ** 2)))

@@ -1,3 +1,8 @@
+"""CRS transformation history tracking.
+
+Provides the CRSHistory class for tracking all CRS and coordinate transformations
+applied to rasters and point clouds, including interpolation methods used.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -1,18 +1,11 @@
-"""
-pipeline_builder.py
+"""Build PROJ pipeline strings for coordinate transformations.
 
-Helpers to build PROJ 9 +proj=pipeline strings for:
+Supports:
+1. Horizontal-only transforms (CRS -> CRS)
+2. Vertical-only transforms (ellipsoidal <-> orthometric, geoid A <-> geoid B)
+3. Dynamic epoch transforms (with velocity/deformation grids)
 
-  1. Horizontal-only transforms (CRS -> CRS)
-  2. Vertical-only transforms (ellipsoidal <-> orthometric, geoid A <-> geoid B)
-  3. Dynamic epoch transforms (with velocity/deformation grids)
-
-The functions here are *only* responsible for constructing PROJ pipeline
-strings. How you execute them (PDAL filters.projpipeline, pyproj.Transformer,
-cct, etc.) is up to you.
-
-Also includes additional processing utilities for raster gap filling and
-PDAL pipeline helpers.
+Only builds PROJ pipeline strings. Execution is handled by PDAL, pyproj, etc.
 """
 
 from __future__ import annotations
@@ -75,7 +68,7 @@ class CRSState:
 
         grid_path = resolve_geoid_alias(self.geoid_alias)
         if grid_path is None:
-            raise ProjError(f"Could not resolve geoid alias '{self.geoid_alias}'")
+            raise ProjError(f"Could not resolve geoid alias '{self.geoid_alias}'.")
         grid_name = Path(grid_path).name  # safest: only filename
 
         return CRSState(
@@ -162,7 +155,7 @@ def _run_projinfo(src_crs: str, dst_crs: str) -> str:
         )
     line = proc.stdout.strip()
     if "+proj=" not in line:
-        raise ProjError(f"projinfo output did not contain a PROJ op: {line!r}")
+        raise ProjError(f"projinfo output did not contain a PROJ operation: {line!r}.")
     return line
 
 
@@ -173,7 +166,7 @@ def _is_geographic(crs_str: str) -> bool:
     try:
         crs = CRS.from_user_input(crs_str)
     except pyproj.exceptions.CRSError as exc:
-        raise ProjError(f"Invalid CRS {crs_str!r}: {exc}")
+        raise ProjError(f"Invalid CRS {crs_str!r}: {exc}.")
     return crs.is_geographic
 
 
@@ -247,19 +240,26 @@ def _build_vertical_steps(src: CRSState, dst: CRSState) -> str:
     # Orthometric -> Ellipsoidal (remove geoid)
     if sk == "orthometric" and dk == "ellipsoidal":
         if not src.geoid_grid:
-            raise ProjError("Source is orthometric but source geoid grid is unknown.")
+            raise ProjError(
+                "Source is orthometric but source geoid grid is unknown. Specify source geoid."
+            )
         return f"+step +proj=vgridshift +grids={src.geoid_grid} +inv"
 
     # Ellipsoidal -> Orthometric (apply geoid)
     if sk == "ellipsoidal" and dk == "orthometric":
         if not dst.geoid_grid:
-            raise ProjError("Target is orthometric but target geoid grid is unknown.")
+            raise ProjError(
+                "Target is orthometric but target geoid grid is unknown. Specify target geoid."
+            )
         return f"+step +proj=vgridshift +grids={dst.geoid_grid}"
 
     # Orthometric A -> Orthometric B
     if sk == "orthometric" and dk == "orthometric":
         if not src.geoid_grid or not dst.geoid_grid:
-            raise ProjError("Both source and target geoid grids must be known for orthometric->orthometric.")
+            raise ProjError(
+                "Both source and target geoid grids must be specified for orthometric "
+                "to orthometric transform."
+            )
         if Path(src.geoid_grid).name == Path(dst.geoid_grid).name:
             # Same model; nothing to do
             return ""
@@ -478,7 +478,7 @@ def build_dynamic_epoch_pipeline(
             "reproject separately before or after applying the deformation."
         )
     if src.epoch is None or dst.epoch is None:
-        raise ProjError("Dynamic epoch pipeline requires both src.epoch and dst.epoch.")
+        raise ProjError("Dynamic epoch pipeline requires both source and target epochs.")
     if src.epoch == dst.epoch:
         return "+proj=pipeline"
 

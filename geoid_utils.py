@@ -1,3 +1,8 @@
+"""Geoid grid discovery and management utilities.
+
+Provides functions for finding PROJ data directories, searching for geoid grids,
+and resolving geoid model aliases to grid file paths.
+"""
 import os
 import re
 import subprocess

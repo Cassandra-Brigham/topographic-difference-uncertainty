@@ -1,3 +1,8 @@
+"""Time and epoch conversion utilities.
+
+Provides functions for converting between datetime formats, decimal years,
+GPS time, and parsing epoch strings from various formats.
+"""
 import datetime
 import re
 from typing import Tuple, Union

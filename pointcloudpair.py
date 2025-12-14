@@ -1,20 +1,19 @@
 # pointcloudpair.py
-"""
-PointCloudPair class for comparing, transforming, aligning, and differencing two point clouds.
+"""Compare, transform, align, and difference two point clouds.
 
-This module provides tools for:
-- Comparing CRS, epoch, geoid, and other parameters between two point clouds
-- Transforming pc1 (compare) to match pc2 (reference)'s reference frame
+Provides tools for:
+- Comparing CRS, epoch, geoid, and other parameters between point clouds
+- Transforming pc1 to match pc2's reference frame
 - ICP-based alignment using small_gicp
 - 3D point cloud differencing
 - 2D DEM-based differencing via RasterPair
 
-The transformation pipeline follows the order:
-1. Dynamic epoch transformation (if epochs differ)
-2. Horizontal CRS reprojection (if horizontal CRS differs)
-3. Vertical datum transformation (if vertical kind or geoid differs)
-4. ICP alignment (optional fine registration)
-5. DEM creation and differencing (for 2D analysis)
+Transformation order:
+1. Dynamic epoch transformation
+2. Horizontal CRS reprojection
+3. Vertical datum transformation
+4. ICP alignment (optional)
+5. DEM creation and differencing
 """
 
 from __future__ import annotations
@@ -424,14 +423,14 @@ class PointCloudPair:
     def print_comparison(self) -> None:
         """Print a human-readable comparison of the two point clouds."""
         comparison = self.check_all_match()
-        
-        print("\n" + "=" * 60)
-        print("PointCloudPair Comparison")
-        print("=" * 60)
-        
+
+        def match_sym(val):
+            return "Yes" if val else "No"
+
+        print("\n--- PointCloudPair Comparison ---")
         print(f"\nCompare (pc1):   {Path(self.pc1.filename).name}")
         print(f"Reference (pc2): {Path(self.pc2.filename).name}")
-        
+
         print(f"\n{'Parameter':<20} {'Match':<8} {'PC1':<20} {'PC2':<20}")
         print("-" * 70)
         
@@ -477,8 +476,7 @@ class PointCloudPair:
             except Exception:
                 pc2_str = "Unknown"
         
-        match_str = "✓" if comparison['horizontal_crs']['match'] else "✗"
-        print(f"{'Horizontal CRS':<20} {match_str:<8} {pc1_str:<20} {pc2_str:<20}")
+        print(f"{'Horizontal CRS':<20} {match_sym(comparison['horizontal_crs']['match']):<8} {pc1_str:<20} {pc2_str:<20}")
         
         # Vertical CRS - get directly from point clouds
         pc1_vert = (
@@ -530,41 +528,36 @@ class PointCloudPair:
         pc1_vert_str = get_vertical_type(pc1_vert, self.pc1)
         pc2_vert_str = get_vertical_type(pc2_vert, self.pc2)
         
-        match_str = "✓" if comparison['vertical_crs']['match'] else "✗"
-        print(f"{'Vertical CRS':<20} {match_str:<8} {pc1_vert_str:<20} {pc2_vert_str:<20}")
+        print(f"{'Vertical CRS':<20} {match_sym(comparison['vertical_crs']['match']):<8} {pc1_vert_str:<20} {pc2_vert_str:<20}")
         
         # Geoid
-        match_str = "✓" if comparison['geoid']['match'] else "✗"
         pc1_geoid = comparison['geoid']['pc1'] or "None"
         pc2_geoid = comparison['geoid']['pc2'] or "None"
-        # Truncate long geoid names
         pc1_geoid = pc1_geoid[:18] + ".." if len(pc1_geoid) > 20 else pc1_geoid
         pc2_geoid = pc2_geoid[:18] + ".." if len(pc2_geoid) > 20 else pc2_geoid
-        print(f"{'Geoid Model':<20} {match_str:<8} {pc1_geoid:<20} {pc2_geoid:<20}")
-        
+        print(f"{'Geoid Model':<20} {match_sym(comparison['geoid']['match']):<8} {pc1_geoid:<20} {pc2_geoid:<20}")
+
         # Epoch
-        match_str = "✓" if comparison['epoch']['match'] else "✗"
         pc1_epoch = f"{comparison['epoch']['pc1']:.4f}" if comparison['epoch']['pc1'] else "None"
         pc2_epoch = f"{comparison['epoch']['pc2']:.4f}" if comparison['epoch']['pc2'] else "None"
-        print(f"{'Epoch':<20} {match_str:<8} {pc1_epoch:<20} {pc2_epoch:<20}")
-        
+        print(f"{'Epoch':<20} {match_sym(comparison['epoch']['match']):<8} {pc1_epoch:<20} {pc2_epoch:<20}")
+
         # Units
-        match_str = "✓" if comparison['vertical_units']['match'] else "✗"
-        print(f"{'Vertical Units':<20} {match_str:<8} {comparison['vertical_units']['pc1']:<20} {comparison['vertical_units']['pc2']:<20}")
-        
+        print(f"{'Vertical Units':<20} {match_sym(comparison['vertical_units']['match']):<8} {comparison['vertical_units']['pc1']:<20} {comparison['vertical_units']['pc2']:<20}")
+
         print("-" * 70)
-        
+
         if comparison['transformations_needed']:
             print(f"\nTransformations needed: {', '.join(comparison['transformations_needed'])}")
         else:
-            print(f"\n✓ Point clouds are fully aligned!")
-        
+            print(f"\nPoint clouds are fully aligned.")
+
         if self._transformation_history:
             print(f"\nTransformation steps applied:")
             for i, step in enumerate(self._transformation_history, 1):
                 print(f"  {i}. {step.get('step', 'unknown')}")
-        
-        print("=" * 60 + "\n")
+
+        print("")
 
     
     # =========================================================================
@@ -591,9 +584,7 @@ class PointCloudPair:
         comparison = self.check_all_match()
         
         if verbose:
-            print(f"\n{'=' * 60}", file=sys.stderr)
-            print("PointCloudPair: Transform compare to match reference", file=sys.stderr)
-            print(f"{'=' * 60}", file=sys.stderr)
+            print(f"\n--- Transform compare to match reference ---", file=sys.stderr)
             print(f"Transformations needed: {comparison['transformations_needed']}", file=sys.stderr)
         
         self._transformation_history = []
@@ -644,17 +635,15 @@ class PointCloudPair:
         if verbose:
             src_epoch = getattr(self.pc1, 'epoch', None)
             if needs_epoch:
-                print(f"  Epoch: {src_epoch:.4f} → {target_epoch:.4f}", file=sys.stderr)
+                print(f"  Epoch: {src_epoch:.4f} -> {target_epoch:.4f}", file=sys.stderr)
             if needs_vertical:
-                print(f"  Vertical: {source_vertical_kind} → {target_vertical_kind}", file=sys.stderr)
-                print(f"  Geoid: {source_geoid} → {target_geoid}", file=sys.stderr)
+                print(f"  Vertical: {source_vertical_kind} -> {target_vertical_kind}", file=sys.stderr)
+                print(f"  Geoid: {source_geoid} -> {target_geoid}", file=sys.stderr)
             if needs_horizontal:
                 print(f"  Horizontal CRS reprojection needed", file=sys.stderr)
-        
+
         # SINGLE warp_pointcloud call with ALL parameters
         if needs_epoch or needs_vertical or needs_horizontal:
-            if verbose:
-                print(f"\nExecuting combined transformation pipeline...", file=sys.stderr)
             
             # Build output filename
             src_path = Path(self.pc1.filename)
@@ -696,11 +685,11 @@ class PointCloudPair:
             })
             
             if verbose:
-                print(f"  ✓ Combined transformation complete", file=sys.stderr)
+                print(f"  Combined transformation [done]", file=sys.stderr)
         else:
             current = self.pc1
             if verbose:
-                print(f"\nNo transformations needed.", file=sys.stderr)
+                print(f"No transformations needed.", file=sys.stderr)
         
         # Update metadata to match reference
         current.add_metadata(
@@ -714,10 +703,7 @@ class PointCloudPair:
         self._pc1_transformed = current
         
         if verbose:
-            print(f"\n{'=' * 60}", file=sys.stderr)
-            print("Transformation pipeline complete", file=sys.stderr)
-            print(f"Output: {current.filename}", file=sys.stderr)
-            print(f"{'=' * 60}\n", file=sys.stderr)
+            print(f"\nOutput: {current.filename}", file=sys.stderr)
         
         return current
     
@@ -766,7 +752,7 @@ class PointCloudPair:
             return PointCloudPair(self.pc1, transformed_pc2)
         
         else:
-            raise ValueError(f"target_pc must be 'pc1' or 'pc2', got {target_pc!r}")
+            raise ValueError(f"target_pc must be 'pc1' or 'pc2', got {target_pc!r}.")
     
     # =========================================================================
     # Alignment Methods (ICP via small_gicp)
@@ -800,9 +786,7 @@ class PointCloudPair:
         import small_gicp
         
         if verbose:
-            print(f"\n{'=' * 60}")
-            print("Point Cloud Alignment (small_gicp)")
-            print(f"{'=' * 60}")
+            print(f"\n--- Point Cloud Alignment (small_gicp) ---")
             print(f"Method: {method.upper()}")
             print(f"Downsample resolution: {downsample_resolution} m")
             print(f"Max correspondence distance: {max_correspondence_distance} m")
@@ -1008,228 +992,7 @@ class PointCloudPair:
             print(f"\n{'=' * 60}\n")
         
         return alignment_result
-# ```
 
-    
-#     def align_point_clouds(
-#         self,
-#         method: str = "gicp",
-#         downsample_resolution: float = 0.5,
-#         max_correspondence_distance: float = 1.0,
-#         max_iterations: int = 50,
-#         transformation_epsilon: float = 1e-6,
-#         num_threads: int = 4,
-#         apply_transform: bool = True,
-#         output_path: Optional[str] = None,
-#         overwrite: bool = True,
-#         verbose: bool = True,
-#     ) -> Dict[str, Any]:
-#         """
-#         Align pc1 to pc2 using ICP registration via small_gicp.
-        
-#         This performs fine registration to correct for small misalignments
-#         that remain after CRS transformations (e.g., survey errors, datum shifts).
-        
-#         Parameters
-#         ----------
-#         method : str, {"gicp", "vgicp", "icp"}
-#             Registration algorithm:
-#             - "gicp": Generalized ICP (recommended)
-#             - "vgicp": Voxelized GICP (faster for large clouds)
-#             - "icp": Standard ICP
-#         downsample_resolution : float
-#             Voxel size for downsampling during registration (meters)
-#         max_correspondence_distance : float
-#             Maximum distance for point correspondences (meters)
-#         max_iterations : int
-#             Maximum ICP iterations
-#         transformation_epsilon : float
-#             Convergence threshold for transformation change
-#         num_threads : int
-#             Number of threads for parallel processing
-#         apply_transform : bool
-#             If True, create a new transformed point cloud file
-#         output_path : str, optional
-#             Output file path for aligned point cloud
-#         overwrite : bool
-#             Overwrite existing output file
-#         verbose : bool
-#             Print progress messages
-            
-#         Returns
-#         -------
-#         dict
-#             Alignment results:
-#             - transformation: 4x4 transformation matrix
-#             - converged: whether ICP converged
-#             - iterations: number of iterations
-#             - fitness: alignment fitness score (inlier ratio)
-#             - rmse: root mean square error
-#             - aligned_pc: aligned PointCloud (if apply_transform=True)
-#         """
-#         if not _has_small_gicp():
-#             raise ImportError(
-#                 "small_gicp is required for point cloud alignment. "
-#                 "Install with: pip install small_gicp"
-#             )
-        
-#         import small_gicp
-        
-#         if verbose:
-#             print(f"\n{'=' * 60}")
-#             print("Point Cloud Alignment (small_gicp)")
-#             print(f"{'=' * 60}")
-#             print(f"Method: {method.upper()}")
-#             print(f"Downsample resolution: {downsample_resolution} m")
-#             print(f"Max correspondence distance: {max_correspondence_distance} m")
-        
-#         # Use transformed pc1 if available, otherwise original
-#         source_pc = self._pc1_transformed or self.pc1
-#         target_pc = self.pc2
-        
-#         # Load points
-#         if verbose:
-#             print(f"\nLoading source points from: {Path(source_pc.filename).name}")
-#         source_points = _load_points_from_las(source_pc.filename)
-        
-#         if verbose:
-#             print(f"Loading target points from: {Path(target_pc.filename).name}")
-#         target_points = _load_points_from_las(target_pc.filename)
-        
-#         if verbose:
-#             print(f"Source points: {len(source_points):,}")
-#             print(f"Target points: {len(target_points):,}")
-        
-#         # Create small_gicp point clouds
-#         source_cloud = small_gicp.PointCloud(source_points)
-#         target_cloud = small_gicp.PointCloud(target_points)
-        
-#         # Preprocess (downsampling, normal estimation, KdTree)
-#         if verbose:
-#             print(f"\nPreprocessing point clouds...")
-        
-#         source_cloud, source_tree = small_gicp.preprocess_points(
-#             source_cloud,
-#             downsampling_resolution=downsample_resolution,
-#             num_threads=num_threads,
-#         )
-#         target_cloud, target_tree = small_gicp.preprocess_points(
-#             target_cloud,
-#             downsampling_resolution=downsample_resolution,
-#             num_threads=num_threads,
-#         )
-        
-#         if verbose:
-#             print(f"Source points after downsampling: {source_cloud.size():,}")
-#             print(f"Target points after downsampling: {target_cloud.size():,}")
-        
-#         # Select registration type
-#         if method.lower() == "gicp":
-#             reg_type = small_gicp.RegistrationType.GICP
-#         elif method.lower() == "vgicp":
-#             reg_type = small_gicp.RegistrationType.VGICP
-#         elif method.lower() == "icp":
-#             reg_type = small_gicp.RegistrationType.ICP
-#         else:
-#             raise ValueError(f"Unknown method: {method}. Use 'gicp', 'vgicp', or 'icp'.")
-        
-#         # Run registration
-#         if verbose:
-#             print(f"\nRunning {method.upper()} registration...")
-        
-#         result = small_gicp.align(
-#             target_cloud,
-#             source_cloud,
-#             target_tree,
-#             reg_type=reg_type,
-#             max_correspondence_distance=max_correspondence_distance,
-#             num_threads=num_threads,
-#         )
-        
-#         # Extract transformation matrix
-#         T = result.T_target_source  # 4x4 transformation matrix
-        
-#         # Compute fitness metrics
-#         # Transform source points and compute distances to target
-#         source_transformed = (T[:3, :3] @ source_points.T).T + T[:3, 3]
-        
-#         # Use KD-tree for nearest neighbor distances
-#         from scipy.spatial import cKDTree
-#         target_tree_scipy = cKDTree(target_points)
-#         distances, _ = target_tree_scipy.query(source_transformed, k=1)
-        
-#         inlier_mask = distances < max_correspondence_distance
-#         fitness = np.sum(inlier_mask) / len(distances)
-#         rmse = np.sqrt(np.mean(distances[inlier_mask] ** 2)) if np.any(inlier_mask) else float('inf')
-        
-#         alignment_result = {
-#             'transformation': T,
-#             'converged': result.converged if hasattr(result, 'converged') else True,
-#             'iterations': result.iterations if hasattr(result, 'iterations') else None,
-#             'fitness': fitness,
-#             'rmse': rmse,
-#             'num_correspondences': int(np.sum(inlier_mask)),
-#             'method': method,
-#             'downsample_resolution': downsample_resolution,
-#             'max_correspondence_distance': max_correspondence_distance,
-#         }
-        
-#         if verbose:
-#             print(f"\nAlignment Results:")
-#             print(f"  Converged: {alignment_result['converged']}")
-#             print(f"  Fitness (inlier ratio): {fitness:.4f}")
-#             print(f"  RMSE: {rmse:.4f} m")
-#             print(f"  Inlier correspondences: {alignment_result['num_correspondences']:,}")
-#             print(f"\nTransformation matrix:")
-#             print(T)
-        
-#         # Apply transformation if requested
-#         if apply_transform:
-#             if output_path is None:
-#                 src_path = Path(source_pc.filename)
-#                 output_path = str(src_path.with_name(src_path.stem + "_aligned" + src_path.suffix))
-            
-#             if os.path.exists(output_path) and not overwrite:
-#                 raise FileExistsError(f"Output file exists and overwrite=False: {output_path}")
-            
-#             if verbose:
-#                 print(f"\nApplying transformation to: {output_path}")
-            
-#             _save_transformed_las(source_pc.filename, output_path, T)
-            
-#             # Load aligned point cloud
-#             aligned_pc = PointCloud(output_path)
-#             aligned_pc.from_file()
-            
-#             # Copy metadata from source
-#             aligned_pc.add_metadata(
-#                 compound_CRS=source_pc.current_compound_crs or source_pc.original_compound_crs,
-#                 horizontal_CRS=source_pc.current_horizontal_crs or source_pc.original_horizontal_crs,
-#                 vertical_CRS=source_pc.current_vertical_crs or source_pc.original_vertical_crs,
-#                 geoid_model=source_pc.geoid_model,
-#                 epoch=source_pc.epoch,
-#             )
-            
-#             alignment_result['aligned_pc'] = aligned_pc
-#             alignment_result['output_file'] = output_path
-            
-#             # Update internal state
-#             self._pc1_transformed = aligned_pc
-            
-#             self._transformation_history.append({
-#                 'step': 'icp_alignment',
-#                 'method': method,
-#                 'fitness': fitness,
-#                 'rmse': rmse,
-#                 'output_file': output_path,
-#             })
-        
-#         self._alignment_result = alignment_result
-        
-#         if verbose:
-#             print(f"\n{'=' * 60}\n")
-        
-#         return alignment_result
     
     # =========================================================================
     # DEM Creation Methods

@@ -1,3 +1,8 @@
+"""Raster loading, metadata extraction, and transformation.
+
+Provides the Raster class for loading GeoTIFF files, extracting CRS and
+metadata, and performing coordinate transformations and reprojections.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

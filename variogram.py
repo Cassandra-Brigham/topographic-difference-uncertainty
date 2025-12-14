@@ -1,17 +1,15 @@
-"""Classes and functions for analyzing vertical differencing uncertainty.
+"""Analyze vertical differencing uncertainty using variogram methods.
 
-This module provides utilities for loading raster data, sampling for variogram
-analysis, fitting parametric semivariogram models, and propagating uncertainty
-to user-defined areas. It implements efficient Numba kernels for pairwise
-calculations, supports bootstrap resampling for parameter confidence intervals,
-and exposes high-level classes:
+Provides utilities for:
+- Loading and sampling raster data for variogram analysis
+- Fitting parametric semivariogram models (spherical, with/without nugget)
+- Bootstrap resampling for parameter confidence intervals
+- Efficient Numba kernels for pairwise distance calculations
 
-- RasterDataHandler
-- StatisticalAnalysis
-- VariogramAnalysis
-- RegionalUncertaintyEstimator
-- ApplyUncertainty
-
+Classes:
+- RasterDataHandler: Load and sample raster data
+- StatisticalAnalysis: Exploratory statistics and bootstrap uncertainty
+- VariogramAnalysis: Compute empirical variograms and fit models
 """
 
 from __future__ import annotations
@@ -202,10 +200,10 @@ class RasterDataHandler:
 
             
             if total_samples < 1:
-                raise ValueError("Computed total_samples < 1; increase samples_per_area or max_samples.")
+                raise ValueError("Computed total_samples < 1. Increase samples_per_area or max_samples.")
 
             if total_samples > valid_count:
-                raise ValueError("Requested samples exceed the number of valid points.")
+                raise ValueError("Requested samples exceed valid pixel count. Reduce samples_per_area.")
 
             chosen = rng.choice(valid_count, size=total_samples, replace=False)
             rows = valid_rows[chosen]
@@ -243,11 +241,11 @@ class StatisticalAnalysis:
         """
         data = self.raster_data_handler.data_array
         if data is None or len(data) == 0:
-            raise ValueError("No data available to plot. Please load the raster first.")
+            raise ValueError("No data available to plot. Call load_raster() first.")
 
         mean = np.mean(data)
         median = np.median(data)
-        # NOTE: mode on continuous data is often not meaningful; kept for completeness.
+        # Mode on continuous data is often not meaningful; kept for completeness
         mode_result = stats.mode(data, nan_policy="omit", keepdims=False)
         mode_vals = np.atleast_1d(mode_result.mode).astype(float)
         q1 = np.percentile(data, 25)
@@ -305,7 +303,7 @@ class StatisticalAnalysis:
         """
         data = self.raster_data_handler.data_array
         if data is None or len(data) == 0:
-            raise ValueError("No data available for bootstrap. Please load the raster first.")
+            raise ValueError("No data available for bootstrap. Call load_raster() first.")
 
         
         subsample_size = max(1, int(round(subsample_proportion * len(data))))
@@ -393,7 +391,7 @@ class VariogramAnalysis:
         else:
             max_lag = float(approx_max_distance * max_lag_multiplier)
         
-        #Determine bin edges using diagonal distance as maximum possible lag distance
+        # Determine bin edges using diagonal distance as maximum lag
         n_bins = int(np.ceil(max_lag / bin_width)) + 1
         bin_edges = np.arange(0, n_bins * bin_width, bin_width)
         
@@ -412,7 +410,7 @@ class VariogramAnalysis:
                 dist = np.sqrt(d)
                 max_distance = max(max_distance, dist)
                 
-                #Compute the difference
+                # Compute the difference
                 diff = values[i] - values[j]
                 
                 # Compute the squared difference
@@ -758,7 +756,7 @@ class VariogramAnalysis:
         rng = np.random.default_rng(seed)
 
         if self.all_variograms is None:
-            raise RuntimeError("You must call calculate_mean_variogram_numba() before fitting.")
+            raise RuntimeError("No variogram data. Call calculate_mean_variogram_numba() first.")
 
         # choose weights
         if sigma_type == 'std':
@@ -772,7 +770,7 @@ class VariogramAnalysis:
         elif sigma_type == 'sq':
             sigma = 1.0 / (1.0 + self.lags ** 2)
         else:
-            raise ValueError(f"Unknown sigma_type '{sigma_type}'")
+            raise ValueError(f"Unknown sigma_type '{sigma_type}'. Use 'std', 'linear', 'exp', 'sqrt', or 'sq'.")
 
         best_params = None
         best_model = None
@@ -842,7 +840,7 @@ class VariogramAnalysis:
                     best_guess = p0
 
         if best_params is None:
-            raise RuntimeError("No valid model fit found.")
+            raise RuntimeError("No valid model fit found. Check input data for NaN values.")
 
         self.best_params = best_params
         self.best_model_config = best_model
@@ -933,7 +931,7 @@ class VariogramAnalysis:
         Plot mean variogram ± spread and fitted model; also show bar plot of mean pair counts.
         """
         if any(attr is None for attr in (self.mean_variogram, self.err_variogram, self.mean_count, self.lags, self.fitted_variogram)):
-            raise RuntimeError("Must run calculate_mean_variogram_numba() and fit_best_spherical_model() first.")
+            raise RuntimeError("Missing variogram data. Call calculate_mean_variogram_numba() and fit_best_spherical_model() first.")
 
         n = min(len(self.lags), len(self.mean_variogram), len(self.err_variogram), len(self.fitted_variogram))
         lags = self.lags[:n]

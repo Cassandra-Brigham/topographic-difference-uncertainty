@@ -1,3 +1,8 @@
+"""Point cloud loading, metadata extraction, and transformation.
+
+Provides the PointCloud class for loading LAS/LAZ files, extracting CRS and
+time metadata, and performing coordinate transformations via PDAL pipelines.
+"""
 from __future__ import annotations
 
 import datetime
@@ -493,7 +498,7 @@ class PointCloud:
                         gps_md2 = gps_root2.get("metadata", {}).get("filters.stats", {})
                         stats_list2 = gps_md2.get("statistic", [])
                         if not stats_list2:
-                            raise ValueError("No GPS time statistics found after conversion.")
+                            raise ValueError("No GPS time statistics found. Check GpsTime dimension.")
                         gps_stats2 = stats_list2[0]
 
                         self.gps_time_mean = float(gps_stats2.get("average"))
@@ -546,7 +551,7 @@ class PointCloud:
                         gps_md2 = gps_root2.get("metadata", {}).get("filters.stats", {})
                         stats_list2 = gps_md2.get("statistic", [])
                         if not stats_list2:
-                            raise ValueError("No GPS time statistics found after conversion.")
+                            raise ValueError("No GPS time statistics found. Check GpsTime dimension.")
                         gps_stats2 = stats_list2[0]
 
                         self.gps_time_mean = float(gps_stats2.get("average"))
@@ -704,7 +709,7 @@ class PointCloud:
         if isinstance(target_unit, str):
             target = lookup_unit(target_unit)
             if target is None:
-                raise ValueError(f"Unknown unit: {target_unit}")
+                raise ValueError(f"Unknown unit: {target_unit}. Use 'meter', 'foot', etc.")
         else:
             target = target_unit
         
@@ -730,71 +735,67 @@ class PointCloud:
     # Pretty printing
     # -------------------------------------------------------------------------
     def print_metadata(self) -> None:
-        print("-----------")
-        print("----CRS----")
-        print("-----------")
-        print(f"Original compound CRS: \n      {self.original_compound_crs}")
-        print(f"Original horizontal CRS: \n      {self.original_horizontal_crs}")
-        print(f"Original vertical CRS: \n      {self.original_vertical_crs}")
-        print(f"Original pretty WKT: \n      {self.original_pretty_wkt}")
-        print(f"Original PROJ string: \n      {self.original_proj_string}")
-        print(f"Geoid model: \n      {self.geoid_model}")
+        """Print point cloud metadata in table format."""
+        print("\n--- CRS Information ---")
+        print(f"{'Property':<25} {'Value':<50}")
+        print("-" * 75)
+        print(f"{'Compound CRS':<25} {str(self.original_compound_crs)[:48]}")
+        print(f"{'Horizontal CRS':<25} {str(self.original_horizontal_crs)[:48]}")
+        print(f"{'Vertical CRS':<25} {str(self.original_vertical_crs)[:48]}")
+        print(f"{'Geoid model':<25} {str(self.geoid_model)[:48]}")
 
-        print("----------------------------")
-        print("----Point cloud metadata----")
-        print("----------------------------")
-        print(f"Total points: \n      {self.total_points}")
-        print(f"Bounds: \n      {self.bounds}")
-        
-        # Enhanced unit display
-        print(f"Horizontal units: \n      {self.horizontal_unit}")
+        print("\n--- Point Cloud Metadata ---")
+        print(f"{'Property':<25} {'Value':<50}")
+        print("-" * 75)
+        print(f"{'Total points':<25} {self.total_points:,}")
+        print(f"{'Bounds':<25} {self.bounds}")
+        h_unit_str = f"{self.horizontal_unit}"
         if self.horizontal_unit.epsg_code:
-            print(f"      (EPSG:{self.horizontal_unit.epsg_code}, factor={self.horizontal_unit.to_base_factor})")
-        
-        print(f"Vertical units: \n      {self.vertical_unit}")
+            h_unit_str += f" (EPSG:{self.horizontal_unit.epsg_code})"
+        print(f"{'Horizontal units':<25} {h_unit_str}")
+        v_unit_str = f"{self.vertical_unit}"
         if self.vertical_unit.epsg_code:
-            print(f"      (EPSG:{self.vertical_unit.epsg_code}, factor={self.vertical_unit.to_base_factor})")
+            v_unit_str += f" (EPSG:{self.vertical_unit.epsg_code})"
+        print(f"{'Vertical units':<25} {v_unit_str}")
 
-        print("------------------------")
-        print("----Time information----")
-        print("------------------------")
-        print(f"Creation year: \n      {self.creation_year}")
-        print(f"Creation day of year: \n      {self.creation_doy}")
-        print(f"GPS time mean (raw): \n      {self.gps_time_mean_raw}")
-        print(f"GPS time min (raw): \n      {self.gps_time_min_raw}")
-        print(f"GPS time max (raw): \n      {self.gps_time_max_raw}")
-        print(f"GPS time stddev (raw): \n      {self.gps_stddev_raw}")
-        print(f"GPS time mean (converted): \n      {self.gps_time_mean}")
-        print(f"GPS time min (converted): \n      {self.gps_time_min}")
-        print(f"GPS time max (converted): \n      {self.gps_time_max}")
-        print(f"GPS time stddev (converted): \n      {self.gps_stddev}")
-        print(f"Decimal year mean (UTC): \n      {self.decimal_year_mean_utc}")
-        print(f"Decimal year min (UTC): \n      {self.decimal_year_min_utc}")
-        print(f"Decimal year max (UTC): \n      {self.decimal_year_max_utc}")
-        print(f"Epoch: \n      {self.epoch}")
+        print("\n--- Time Information ---")
+        print(f"{'Property':<25} {'Value':<50}")
+        print("-" * 75)
+        print(f"{'Creation year':<25} {self.creation_year}")
+        print(f"{'Creation DOY':<25} {self.creation_doy}")
+        print(f"{'GPS time mean (raw)':<25} {self.gps_time_mean_raw}")
+        print(f"{'GPS time min (raw)':<25} {self.gps_time_min_raw}")
+        print(f"{'GPS time max (raw)':<25} {self.gps_time_max_raw}")
+        print(f"{'GPS stddev (raw)':<25} {self.gps_stddev_raw}")
+        print(f"{'GPS time mean':<25} {self.gps_time_mean}")
+        print(f"{'GPS time min':<25} {self.gps_time_min}")
+        print(f"{'GPS time max':<25} {self.gps_time_max}")
+        print(f"{'GPS stddev':<25} {self.gps_stddev}")
+        print(f"{'Decimal year mean (UTC)':<25} {self.decimal_year_mean_utc}")
+        print(f"{'Decimal year min (UTC)':<25} {self.decimal_year_min_utc}")
+        print(f"{'Decimal year max (UTC)':<25} {self.decimal_year_max_utc}")
+        print(f"{'Epoch':<25} {self.epoch}")
 
-        print("----------------------------------")
-        print("----Classification information----")
-        print("----------------------------------")
-        print(f"Classification bins: \n      {self.classification}")
-        print(f"Classification values: \n      {self.class_values}")
-        print(f"Classification counts: \n      {self.class_counts}")
+        print("\n--- Classification Information ---")
+        print(f"{'Property':<25} {'Value':<50}")
+        print("-" * 75)
+        print(f"{'Classification bins':<25} {self.classification}")
+        print(f"{'Class values':<25} {self.class_values}")
+        print(f"{'Class counts':<25} {self.class_counts}")
 
     def print_unit_info(self) -> None:
         """Print detailed information about the point cloud's units."""
-        print("==================")
-        print("==== Unit Info ====")
-        print("==================")
-        print(f"\nHorizontal: {describe_unit(self.horizontal_unit)}")
+        print("\n--- Unit Information ---")
+        print(f"Horizontal: {describe_unit(self.horizontal_unit)}")
         print(f"Vertical:   {describe_unit(self.vertical_unit)}")
-        
+
         h_metric, v_metric = self.are_units_metric()
-        print(f"\nHorizontal is metric: {h_metric}")
-        print(f"Vertical is metric: {v_metric}")
-        
+        print(f"Horizontal is metric: {h_metric}")
+        print(f"Vertical is metric:   {v_metric}")
+
         if self.vertical_unit.name != "meter":
             factor = self.get_z_conversion_factor("meter")
-            print(f"\nTo convert Z to meters, multiply by: {factor:.10f}")
+            print(f"Z to meters factor:   {factor:.10f}")
 
     # -------------------------------------------------------------------------
     # Metadata editing

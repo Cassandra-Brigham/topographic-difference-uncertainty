@@ -1,14 +1,15 @@
-"""Utility classes for defining and analyzing stable and unstable areas in
-topographic differencing workflows.
+"""Define and analyze stable/unstable areas for topographic differencing.
 
-This module provides interactive mapping widgets for drawing polygons on
-topographic difference rasters, functions for rasterizing those polygons
-against a raster mask, and helpers for computing descriptive statistics
-within stable or unstable regions. The classes exposed here are designed
-to be used in a Jupyter notebook environment.
+Provides:
+- Interactive mapping widgets for drawing polygons on difference rasters
+- Rasterizing polygons against raster masks
+- Computing descriptive statistics within regions
+
+Designed for use in Jupyter notebook environments.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Tuple, List, Optional, Iterable
 import uuid
@@ -150,9 +151,9 @@ class TopoMapInteractor:
 
         # Add image overlay - try both data URL and file path
         # Some environments prefer file:// URLs
-        print(f"Map bounds (lat/lon): {self.latlon_bounds}")
-        print(f"Map center: {center}")
-        print(f"Using overlay: {self._overlay_image}")
+        print(f"Map bounds (lat/lon): {self.latlon_bounds}", file=sys.stderr)
+        print(f"Map center: {center}", file=sys.stderr)
+        print(f"Using overlay: {self._overlay_image}", file=sys.stderr)
 
         self.overlay_layer = ImageOverlay(url=self._overlay_data_url, bounds=self.latlon_bounds, opacity=1.0)
         self.map.add_layer(self.overlay_layer)
@@ -222,7 +223,7 @@ class TopoMapInteractor:
             b = f.read()
 
         data_url = f"data:{mime_type};base64," + base64.b64encode(b).decode("ascii")
-        print(f"Generated data URL: {len(data_url)} characters ({len(b)} bytes)")
+        print(f"Generated data URL: {len(data_url)} chars ({len(b)} bytes)", file=sys.stderr)
         return data_url
 
     def _generate_overlay_image(
@@ -245,7 +246,7 @@ class TopoMapInteractor:
             nodata = src.nodata
             height, width = data.shape
 
-        print(f"Overlay generation: raster shape={data.shape}, nodata={nodata}")
+        print(f"Overlay: shape={data.shape}, nodata={nodata}", file=sys.stderr)
 
         # Mask nodata and invalid values
         if nodata is not None:
@@ -254,10 +255,10 @@ class TopoMapInteractor:
 
         # Check if we have any valid data
         valid_count = np.sum(~np.isnan(data))
-        print(f"Valid pixels: {valid_count} / {data.size} ({100*valid_count/data.size:.1f}%)")
+        print(f"Valid pixels: {valid_count:,} / {data.size:,} ({100*valid_count/data.size:.1f}%)", file=sys.stderr)
 
         if np.all(np.isnan(data)):
-            print("WARNING: All data values are NaN/nodata - overlay will be invisible")
+            print("[WARNING] All data values are NaN/nodata. Overlay will be invisible.", file=sys.stderr)
 
         # Determine color limits from valid data only
         valid_data = data[~np.isnan(data)]
@@ -276,11 +277,11 @@ class TopoMapInteractor:
                 vmin_val = float(vmin)
                 vmax_val = float(vmax)
 
-            print(f"Color range: [{vmin_val:.3f}, {vmax_val:.3f}]")
-            print(f"Data range: [{np.nanmin(data):.3f}, {np.nanmax(data):.3f}]")
+            print(f"Color range: [{vmin_val:.3f}, {vmax_val:.3f}]", file=sys.stderr)
+            print(f"Data range: [{np.nanmin(data):.3f}, {np.nanmax(data):.3f}]", file=sys.stderr)
         else:
             vmin_val, vmax_val = -1.0, 1.0  # Fallback if no valid data
-            print(f"No valid data - using fallback color range [{vmin_val}, {vmax_val}]")
+            print(f"No valid data. Using fallback color range [{vmin_val}, {vmax_val}].", file=sys.stderr)
 
         # For JPEG, we need a background color (no transparency)
         # For PNG, we can use transparency
@@ -329,7 +330,7 @@ class TopoMapInteractor:
         fig.savefig(str(image_path), **save_kwargs)
         plt.close(fig)
 
-        print(f"Saved overlay image: {image_path}")
+        print(f"Saved overlay: {image_path}", file=sys.stderr)
 
     # -------------------- Category activation --------------------
     def _activate_category(self, category: str):
